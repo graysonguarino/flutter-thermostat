@@ -1,0 +1,92 @@
+name: flutter-thermostat
+version: 0.1.0
+summary: Flutter Thermostat
+description: Flutter Thermostat
+
+confinement: strict
+base: core18
+grade: stable
+
+architectures:
+  - build-on: amd64
+
+apps:
+  daemon:
+    daemon: simple
+    restart-condition: always
+    command-chain:
+      - bin/run-daemon
+      - bin/wayland-launch
+      - bin/gl-launch
+    command: bin/flutter_thermostat
+    extensions: [flutter-master]
+
+  flutter-thermostat:
+    command-chain:
+      - bin/wayland-launch
+      - bin/gl-launch
+    command: flutter_thermostat
+    extensions: [flutter-master]
+  
+parts:
+  flutter-thermostat:
+    source: .
+    plugin: flutter
+    flutter-target: lib/main.dart
+  
+  mir-kiosk-snap-launch:
+    plugin: dump
+    source: https://github.com/MirServer/mir-kiosk-snap-launch.git
+    override-build:  $SNAPCRAFT_PART_BUILD/build-with-plugs.sh opengl pulseaudio wayland
+    stage-packages:
+      - inotify-tools
+
+  # Some arm devices (notably RPi4) only work with gles
+  gles-on-arm:
+    plugin: nil
+    override-build: |
+      snapcraftctl build
+      mkdir -p $SNAPCRAFT_PART_INSTALL/bin/
+      if [ "$SNAPCRAFT_TARGET_ARCH" != "arm64" ]; then
+        echo 'exec "$@"' > $SNAPCRAFT_PART_INSTALL/bin/gl-launch
+      else
+        echo 'GDK_GL=gles exec "$@"' > $SNAPCRAFT_PART_INSTALL/bin/gl-launch
+      fi
+      chmod a+x $SNAPCRAFT_PART_INSTALL/bin/gl-launch
+
+  assets:
+    plugin: nil
+    stage-packages:
+    - dmz-cursor-theme
+    - fonts-dejavu
+    - fonts-freefont-ttf
+    - fonts-ubuntu
+
+layout:
+  /usr/share/fonts:
+    bind: $SNAP/usr/share/fonts
+  /etc/fonts:
+    bind: $SNAP/etc/fonts
+  /usr/share/icons:
+    bind: $SNAP/usr/share/icons
+
+
+# slots:
+#  dbus-flutter-thermostat:
+#    interface: dbus
+#    bus: session
+#    name: com.example.flutter_thermostat # replace with your app name
+   
+# apps:
+#  flutter-thermostat:
+#    command: flutter_thermostat # replace with your app name
+#    extensions: [flutter-master] 
+#    plugs:
+#    - network
+#    slots:
+#      - dbus-flutter-thermostat
+# parts:
+#  flutter-thermostat:
+#    source: .
+#    plugin: flutter
+#    flutter-target: lib/main.dart # The main entry-point file of the application
